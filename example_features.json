@@ -1,0 +1,40 @@
+{
+  "complexity_features": {
+    "language": "python",
+    "function_length": 8,
+    "loop_count": 2,
+    "max_loop_nesting": 2,
+    "branch_count": 1,
+    "recursion_count": 0,
+    "function_call_count": 1,
+    "ast_node_count": 34,
+    "input_size_variable": true,
+    "loop_bound_type": "input_dependent",
+    "data_structure_types": ["list"]
+  },
+  "complexity_target": "O(n^2)",
+  "defect_features": {
+    "language": "c",
+    "source_code": "void example(void) {}",
+    "function_length": 1,
+    "branch_count": 0,
+    "loop_count": 0,
+    "pointer_usage": 0,
+    "memory_operation_count": 0,
+    "dangerous_api_count": 0,
+    "exception_handling_count": 0,
+    "null_check_count": 0,
+    "cyclomatic_complexity": 1,
+    "duplicate_code_ratio": 0.0,
+    "uninitialized_variable_count": 0,
+    "resource_cleanup_count": 0,
+    "ast_node_count": 2
+  },
+  "defect_target": 0,
+  "prediction_output_example": {
+    "predicted_complexity": "O(n^2)",
+    "confidence": 0.87,
+    "predicted_label": "non-vulnerable",
+    "risk_probability": 0.13
+  }
+}
