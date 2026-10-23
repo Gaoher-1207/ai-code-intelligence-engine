@@ -1,0 +1,10 @@
+              precision    recall  f1-score   support
+
+       False       0.65      0.72      0.68      1477
+        True       0.62      0.54      0.58      1255
+
+    accuracy                           0.64      2732
+   macro avg       0.63      0.63      0.63      2732
+weighted avg       0.64      0.64      0.63      2732
+
+schema-only gradient boosting accuracy: 0.551
