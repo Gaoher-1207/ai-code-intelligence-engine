@@ -1,0 +1,15 @@
+              precision    recall  f1-score   support
+
+    constant       0.79      0.60      0.68       210
+       cubic       0.59      0.23      0.33       146
+      linear       0.45      0.45      0.45       155
+        logn       0.43      0.72      0.54        36
+       nlogn       0.44      0.68      0.53        98
+          np       0.62      0.50      0.56       103
+   quadratic       0.37      0.55      0.44       157
+
+    accuracy                           0.51       905
+   macro avg       0.53      0.54      0.51       905
+weighted avg       0.55      0.51      0.51       905
+
+schema-only RandomForest accuracy: 0.365
