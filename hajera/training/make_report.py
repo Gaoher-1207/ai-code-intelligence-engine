@@ -8,17 +8,21 @@ import joblib
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import pandas as pd
 from scipy.sparse import hstack, csr_matrix
 from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, f1_score
-from sklearn.model_selection import GroupShuffleSplit
 
+from dataset_preparation import (
+    devign_quality_report,
+    ensure_no_devign_exact_overlap,
+    load_complexity_dataset,
+    load_devign_splits,
+    split_complexity_dataset,
+)
 from schema_features import (complexity_vector, defect_vector, extract_complexity_features,
                              extract_defect_features, prep)
 
 HAJERA = Path(__file__).resolve().parents[1]
 MODELS, EVAL = HAJERA / "models", HAJERA / "evaluation"
-PY_DATA = Path("D:/projects/datasets/CodeComplex/data/python_data.jsonl")
 
 
 def _plot(y_true, y_pred, labels, title, path):
@@ -34,18 +38,17 @@ def _plot(y_true, y_pred, labels, title, path):
 
 def eval_complexity(cx):
     bundle = joblib.load(MODELS / "complexity_python_schema_lr.joblib")
-    feats = [extract_complexity_features(s) for s in cx["src"]]
+    test_df = split_complexity_dataset(cx)["test"]
+    feats = [extract_complexity_features(s) for s in test_df["src"]]
     num = prep([complexity_vector(f) for f in feats])
-    y, groups = cx["complexity"].reset_index(drop=True), cx["problem"].reset_index(drop=True)
-    _, te = next(GroupShuffleSplit(test_size=0.2, random_state=42).split(num, y, groups))  # same split as training
-    src = cx["src"].reset_index(drop=True)
-    A = hstack([bundle["vectorizer"].transform(src.iloc[te]),
-                csr_matrix(bundle["scaler"].transform(num[te]))]).tocsr()
+    y = test_df["complexity"].reset_index(drop=True)
+    A = hstack([bundle["vectorizer"].transform(test_df["src"]),
+                csr_matrix(bundle["scaler"].transform(num))]).tocsr()
     pred = bundle["model"].predict(A)
-    _plot(y.iloc[te], pred, list(bundle["model"].classes_),
+    _plot(y, pred, list(bundle["model"].classes_),
           "Complexity (Python): normalized confusion matrix", EVAL / "complexity_confusion.png")
-    return {"n": len(te), "acc": accuracy_score(y.iloc[te], pred),
-            "f1": f1_score(y.iloc[te], pred, average="macro")}
+    return {"n": len(y), "acc": accuracy_score(y, pred),
+            "f1": f1_score(y, pred, average="macro")}
 
 
 def eval_defect(test_df):
@@ -92,10 +95,13 @@ Confusion matrices: `complexity_confusion.png`, `defect_confusion.png`.
 
 
 if __name__ == "__main__":
-    from datasets import load_dataset
-    c = eval_complexity(pd.read_json(PY_DATA, lines=True))
+    complexity = load_complexity_dataset()
+    c = eval_complexity(complexity)
     print("complexity:", c)
-    d = eval_defect(load_dataset("google/code_x_glue_cc_defect_detection")["test"].to_pandas())
+    defect = load_devign_splits()
+    print("Devign data quality:", devign_quality_report(defect))
+    ensure_no_devign_exact_overlap(defect)
+    d = eval_defect(defect["test"])
     print("defect:", d)
     write_results(c, d)
     print("wrote confusion matrices and RESULTS.md")
