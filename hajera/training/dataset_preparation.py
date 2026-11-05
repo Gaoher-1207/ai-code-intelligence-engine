@@ -33,6 +33,14 @@ _C_TOKENS = re.compile(
     r"(?P<number>\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|"
     r"(?P<operator>->|\+\+|--|==|!=|<=|>=|&&|\|\||<<|>>|\+=|-=|\*=|/=|%=|[^\s])"
 )
+_DEVIGN_C_WHITESPACE_TOKENS = re.compile(
+    r'//[^\r\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|'
+    r"'(?:\\.|[^'\\])*'|[A-Za-z_]\w*|"
+    r"(?:0[xX][0-9A-Fa-f]+|\d+(?:\.\d*)?(?:[Ee][+-]?\d+)?[uUlLfF]*)|"
+    r">>=|<<=|\.\.\.|->|\+\+|--|&&|\|\||==|!=|<=|>=|<<|>>|"
+    r"\+=|-=|\*=|/=|%=|&=|\|=|\^=|##|[^\s]",
+    re.S,
+)
 
 
 class DatasetValidationError(ValueError):
@@ -140,6 +148,18 @@ def _normalized_source_hash(source: str, language: str) -> str:
     return hashlib.sha256(json.dumps(tokens, ensure_ascii=False).encode("utf-8")).hexdigest()
 
 
+def devign_whitespace_source_key(source: str) -> tuple[str, ...]:
+    """Return conservative C tokens for Devign grouping.
+
+    Inter-token whitespace is ignored, while comments and string/character literal
+    contents are retained. This deliberately differs from the older report helper,
+    which also ignores comments, and matches the audited Devign quarantine policy.
+    """
+    if not isinstance(source, str):
+        raise DatasetValidationError("Devign source code must be a string")
+    return tuple(_DEVIGN_C_WHITESPACE_TOKENS.findall(source))
+
+
 def _duplicate_summary(frame: pd.DataFrame, source_column: str) -> dict[str, int]:
     by_hash: dict[str, list[int]] = {}
     for index, source in enumerate(frame[source_column].tolist()):
@@ -182,6 +202,131 @@ def complexity_quality_report(frame: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+def _complexity_conflict_partition(
+    frame: pd.DataFrame,
+) -> tuple[pd.Series, set[str], set[str], int]:
+    exact_groups: dict[str, list[int]] = {}
+    normalized_groups: dict[str, list[int]] = {}
+    for position, source in enumerate(frame["src"].tolist()):
+        exact_groups.setdefault(_source_hash(source), []).append(position)
+        normalized_groups.setdefault(_normalized_source_hash(source, "python"), []).append(position)
+
+    exact_conflicts = {
+        source_hash
+        for source_hash, positions in exact_groups.items()
+        if frame.iloc[positions]["complexity"].nunique(dropna=False) > 1
+    }
+    normalized_conflicts = {
+        source_hash
+        for source_hash, positions in normalized_groups.items()
+        if frame.iloc[positions]["complexity"].nunique(dropna=False) > 1
+    }
+    quarantined_positions = {
+        position
+        for source_hash, positions in normalized_groups.items()
+        if source_hash in normalized_conflicts
+        for position in positions
+    }
+    mask = pd.Series(False, index=frame.index)
+    if quarantined_positions:
+        mask.iloc[list(quarantined_positions)] = True
+    normalized_conflict_record_count = sum(
+        len(positions)
+        for source_hash, positions in normalized_groups.items()
+        if source_hash in normalized_conflicts
+    )
+    return mask, exact_conflicts, normalized_conflicts, normalized_conflict_record_count
+
+
+def prepare_complexity_dataset(frame: pd.DataFrame) -> dict[str, Any]:
+    """Quarantine contradictory normalized-source groups, then split clean records."""
+    validate_complexity_frame(frame)
+    quarantine_mask, exact_conflicts, normalized_conflicts, \
+        normalized_conflict_record_count = _complexity_conflict_partition(frame)
+    quarantined = frame.loc[quarantine_mask].copy()
+    modeling = frame.loc[~quarantine_mask].copy()
+
+    if len(exact_conflicts) != 59 or len(normalized_conflicts) != 59 \
+            or len(quarantined) != 127 or len(modeling) != 4773:
+        raise DatasetValidationError(
+            "CodeComplex conflict profile changed: expected 59 exact groups, 59 normalized "
+            "groups, 127 quarantined records, and 4773 modeling records; found "
+            f"{len(exact_conflicts)}, {len(normalized_conflicts)}, {len(quarantined)}, "
+            f"and {len(modeling)}. Review before training."
+        )
+    missing_labels = set(frame["complexity"]) - set(modeling["complexity"])
+    if missing_labels:
+        raise DatasetValidationError(
+            "Quarantine removed the only records for complexity labels: "
+            + ", ".join(sorted(missing_labels))
+        )
+
+    splits = _split_complexity_records(modeling)
+    quarantine_hashes = {_source_hash(source) for source in quarantined["src"]}
+    quarantine_normalized_hashes = {
+        _normalized_source_hash(source, "python") for source in quarantined["src"]
+    }
+    for split_name, split_frame in splits.items():
+        leaked = quarantine_hashes & {_source_hash(source) for source in split_frame["src"]}
+        if leaked:
+            raise DatasetValidationError(
+                f"Quarantined source groups entered the {split_name} split ({len(leaked)} groups)."
+            )
+        normalized_leaked = quarantine_normalized_hashes & {
+            _normalized_source_hash(source, "python") for source in split_frame["src"]
+        }
+        if normalized_leaked:
+            raise DatasetValidationError(
+                f"Quarantined normalized-source groups entered the {split_name} split "
+                f"({len(normalized_leaked)} groups)."
+            )
+    _, _, remaining_normalized_conflicts, _ = _complexity_conflict_partition(modeling)
+    if remaining_normalized_conflicts:
+        raise DatasetValidationError(
+            "Normalized-source label conflicts remain in the modeling pool "
+            f"({len(remaining_normalized_conflicts)} groups)."
+        )
+
+    return {
+        "splits": splits,
+        "modeling": modeling,
+        "quarantined": quarantined,
+        "quarantined_group_ids": sorted(normalized_conflicts),
+        "summary": {
+            "original_record_count": len(frame),
+            "exact_conflicting_group_count": len(exact_conflicts),
+            "normalized_conflicting_group_count": len(normalized_conflicts),
+            "normalized_conflicting_record_count": normalized_conflict_record_count,
+            "exact_conflicting_record_count": int(
+                frame["src"].map(lambda source: _source_hash(source) in exact_conflicts).sum()
+            ),
+            "quarantined_group_count": len(normalized_conflicts),
+            "quarantined_record_count": len(quarantined),
+            "modeling_record_count": len(modeling),
+            "original_label_counts": {
+                str(label): int(count)
+                for label, count in frame["complexity"].value_counts().sort_index().items()
+            },
+            "modeling_label_counts": {
+                str(label): int(count)
+                for label, count in modeling["complexity"].value_counts().sort_index().items()
+            },
+            "quarantined_label_counts": {
+                str(label): int(count)
+                for label, count in quarantined["complexity"].value_counts().sort_index().items()
+            },
+            "split_record_counts": {name: len(part) for name, part in splits.items()},
+            "split_label_counts": {
+                name: {
+                    str(label): int(count)
+                    for label, count in part["complexity"].value_counts().sort_index().items()
+                }
+                for name, part in splits.items()
+            },
+        },
+    }
+
+
 def split_complexity_dataset(
     frame: pd.DataFrame,
     *,
@@ -189,15 +334,35 @@ def split_complexity_dataset(
     test_size: float = 0.2,
     validation_fraction_of_train: float = 0.25,
 ) -> dict[str, pd.DataFrame]:
-    """Split by problem, retaining the existing 80/20 test split and adding validation.
+    """Quarantine conflicting normalized-source groups, then split by problem.
 
     The outer split deliberately matches the historical GroupShuffleSplit used by the
-    saved complexity model. Exact-source overlap is checked at both split boundaries;
-    the function fails instead of silently allowing duplicate code across splits.
+    saved complexity model. Exact and normalized source overlap is checked at both
+    split boundaries; the function fails instead of allowing duplicate code across splits.
     """
     validate_complexity_frame(frame)
     if not 0 < test_size < 1 or not 0 < validation_fraction_of_train < 1:
         raise ValueError("Split fractions must be strictly between 0 and 1")
+    quarantine_mask, _, _, _ = _complexity_conflict_partition(frame)
+    modeling = frame.loc[~quarantine_mask]
+    if modeling.empty:
+        raise DatasetValidationError("No CodeComplex records remain after conflict quarantine")
+    return _split_complexity_records(
+        modeling,
+        random_state=random_state,
+        test_size=test_size,
+        validation_fraction_of_train=validation_fraction_of_train,
+    )
+
+
+def _split_complexity_records(
+    frame: pd.DataFrame,
+    *,
+    random_state: int = 42,
+    test_size: float = 0.2,
+    validation_fraction_of_train: float = 0.25,
+) -> dict[str, pd.DataFrame]:
+    """Split a conflict-free frame by problem and reject source overlap."""
     outer = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
     train_validation_indices, test_indices = next(
         outer.split(frame, frame["complexity"], groups=frame["problem"])

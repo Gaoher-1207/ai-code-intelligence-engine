@@ -16,7 +16,7 @@ from dataset_preparation import (
     ensure_no_devign_exact_overlap,
     load_complexity_dataset,
     load_devign_splits,
-    split_complexity_dataset,
+    prepare_complexity_dataset,
 )
 from schema_features import (complexity_vector, defect_vector, extract_complexity_features,
                              extract_defect_features, prep)
@@ -38,7 +38,8 @@ def _plot(y_true, y_pred, labels, title, path):
 
 def eval_complexity(cx):
     bundle = joblib.load(MODELS / "complexity_python_schema_lr.joblib")
-    test_df = split_complexity_dataset(cx)["test"]
+    prepared = prepare_complexity_dataset(cx)
+    test_df = prepared["splits"]["test"]
     feats = [extract_complexity_features(s) for s in test_df["src"]]
     num = prep([complexity_vector(f) for f in feats])
     y = test_df["complexity"].reset_index(drop=True)
@@ -48,7 +49,9 @@ def eval_complexity(cx):
     _plot(y, pred, list(bundle["model"].classes_),
           "Complexity (Python): normalized confusion matrix", EVAL / "complexity_confusion.png")
     return {"n": len(y), "acc": accuracy_score(y, pred),
-            "f1": f1_score(y, pred, average="macro")}
+            "f1": f1_score(y, pred, average="macro"),
+            "dataset_summary": prepared["summary"],
+            "quarantined_group_ids": prepared["quarantined_group_ids"]}
 
 
 def eval_defect(test_df):
@@ -74,6 +77,14 @@ Both models are baselines. All numbers are on held-out test data.
 | Time complexity (Python, 7 classes) | CodeComplex, split by problem | {c['n']} | {c['acc']:.1%} | {c['f1']:.2f} |
 | Defect risk (C, insecure vs secure) | CodeXGLUE / Devign test split | {d['n']} | {d['acc']:.1%} | {d['f1']:.2f} |
 
+## Complexity quarantine
+
+Original CodeComplex records: {c['dataset_summary']['original_record_count']}<br>
+Quarantined conflicting groups: {c['dataset_summary']['quarantined_group_count']}<br>
+Quarantined records: {c['dataset_summary']['quarantined_record_count']}<br>
+Records used for modeling: {c['dataset_summary']['modeling_record_count']}<br>
+Split sizes (train / validation / test): {c['dataset_summary']['split_record_counts']['train']} / {c['dataset_summary']['split_record_counts']['validation']} / {c['dataset_summary']['split_record_counts']['test']}
+
 Confusion matrices: `complexity_confusion.png`, `defect_confusion.png`.
 
 ## What we learned
@@ -92,6 +103,27 @@ Confusion matrices: `complexity_confusion.png`, `defect_confusion.png`.
   is added.
 """
     (EVAL / "RESULTS.md").write_text(text, encoding="utf-8")
+    summary = c["dataset_summary"]
+    quarantine_text = (
+        "CodeComplex quarantine summary\n\n"
+        f"Original records: {summary['original_record_count']}\n"
+        f"Exact conflicting groups: {summary['exact_conflicting_group_count']}\n"
+        f"Exact-conflict records: {summary['exact_conflicting_record_count']}\n"
+        f"Normalized conflicting groups: {summary['normalized_conflicting_group_count']}\n"
+        f"Records in normalized-conflict groups: {summary['normalized_conflicting_record_count']}\n"
+        f"Quarantined groups: {summary['quarantined_group_count']}\n"
+        f"Quarantined records: {summary['quarantined_record_count']}\n"
+        f"Modeling records: {summary['modeling_record_count']}\n\n"
+        f"Original class counts: {summary['original_label_counts']}\n"
+        f"Quarantined class counts: {summary['quarantined_label_counts']}\n"
+        f"Modeling class counts: {summary['modeling_label_counts']}\n"
+        f"Split record counts: {summary['split_record_counts']}\n"
+        f"Split class counts: {summary['split_label_counts']}\n\n"
+        "Quarantined normalized source group IDs:\n"
+        + "\n".join(c["quarantined_group_ids"])
+        + "\n"
+    )
+    (EVAL / "complexity_quarantine_report.txt").write_text(quarantine_text, encoding="utf-8")
 
 
 if __name__ == "__main__":

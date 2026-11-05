@@ -11,7 +11,8 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # repo root
-from feature_schema import validate_complexity_features, validate_defect_features  # noqa: E402,F401
+from feature_schema import (DEFECT_INPUT_FEATURES, validate_complexity_features,
+                            validate_defect_features)  # noqa: E402,F401
 
 
 def _dup_ratio(code):
@@ -197,6 +198,11 @@ BOUNDS = ["constant", "input_dependent", "logarithmic", "unknown"]
 STRUCTS = ["list", "dict", "set", "heap", "deque"]
 CX_NUM = ["function_length", "loop_count", "max_loop_nesting", "branch_count",
           "recursion_count", "function_call_count", "ast_node_count"]
+COMPLEXITY_VECTOR_FEATURE_NAMES = [
+    *CX_NUM, "input_size_variable",
+    *(f"loop_bound_type={bound}" for bound in BOUNDS),
+    *(f"data_structure_types={structure}" for structure in STRUCTS),
+]
 
 
 def complexity_vector(f):
@@ -319,6 +325,7 @@ DEFECT_NUM = ["function_length", "branch_count", "loop_count", "pointer_usage",
               "memory_operation_count", "dangerous_api_count", "exception_handling_count",
               "null_check_count", "cyclomatic_complexity", "duplicate_code_ratio",
               "uninitialized_variable_count", "resource_cleanup_count", "ast_node_count"]
+DEFECT_VECTOR_FEATURE_NAMES = list(DEFECT_NUM)
 
 
 def defect_vector(f):

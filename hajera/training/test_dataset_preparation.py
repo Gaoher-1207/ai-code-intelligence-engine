@@ -10,8 +10,11 @@ from dataset_preparation import (
     devign_quality_report,
     ensure_no_devign_exact_overlap,
     parse_complexity_jsonl,
+    prepare_complexity_dataset,
     split_complexity_dataset,
     validate_devign_frame,
+    _complexity_conflict_partition,
+    _normalized_source_hash,
 )
 
 
@@ -31,6 +34,60 @@ def complexity_records():
         }
         for index in range(80)
     ]
+
+
+def full_complexity_quarantine_records():
+    records = []
+    for group_index in range(59):
+        if group_index == 57:
+            labels = ["constant", "logn", "logn"]
+        elif group_index == 58:
+            labels = ["cubic", "cubic", "quadratic", "quadratic"]
+        else:
+            labels = [
+                COMPLEXITY_LABELS[group_index % len(COMPLEXITY_LABELS)],
+                COMPLEXITY_LABELS[(group_index + 1) % len(COMPLEXITY_LABELS)],
+            ]
+        source = f"def conflict_{group_index}():\n    return {group_index}\n"
+        for record_index, label in enumerate(labels):
+            records.append(
+                {
+                    "src": source,
+                    "complexity": label,
+                    "problem": f"conflict-{group_index}-{record_index}",
+                    "from": "CODEFORCES",
+                    "tags": "implementation",
+                }
+            )
+        if group_index == 0:
+            variant_sources = [source + "\n", source + "\n\n"]
+        elif group_index == 1:
+            variant_sources = [source + "  \n", source + " \n"]
+        elif group_index == 2:
+            variant_sources = [source + "\n", source + "\n\n"]
+        else:
+            variant_sources = []
+        for variant_index, variant_source in enumerate(variant_sources):
+            records.append(
+                {
+                    "src": variant_source,
+                    "complexity": labels[-1],
+                    "problem": f"conflict-{group_index}-variant-{variant_index}",
+                    "from": "CODEFORCES",
+                    "tags": "implementation",
+                }
+            )
+    for record_index in range(4773):
+        records.append(
+            {
+                "src": f"def clean_{record_index}():\n    return {record_index}\n",
+                "complexity": COMPLEXITY_LABELS[record_index % len(COMPLEXITY_LABELS)],
+                "problem": f"clean-{record_index}",
+                "from": "CODEFORCES",
+                "tags": "implementation",
+            }
+        )
+    return pd.DataFrame(records)
 
 
 def devign_frame(suffix, labels=(False, True, False, True), funcs=None):
@@ -100,6 +157,85 @@ def test_complexity_split_is_reproducible_and_keeps_problems_and_code_disjoint()
     for left, right in (("train", "validation"), ("train", "test"), ("validation", "test")):
         assert set(splits[left]["problem"]).isdisjoint(splits[right]["problem"])
         assert set(splits[left]["src"]).isdisjoint(splits[right]["src"])
+
+
+def test_complexity_quarantine_detects_59_groups_and_preserves_original_rows():
+    frame = full_complexity_quarantine_records()
+    original = frame.copy(deep=True)
+
+    prepared = prepare_complexity_dataset(frame)
+
+    assert prepared["summary"]["original_record_count"] == 4900
+    assert prepared["summary"]["exact_conflicting_group_count"] == 59
+    assert prepared["summary"]["normalized_conflicting_group_count"] == 59
+    assert prepared["summary"]["exact_conflicting_record_count"] == 121
+    assert prepared["summary"]["quarantined_group_count"] == 59
+    assert prepared["summary"]["normalized_conflicting_record_count"] == 127
+    assert prepared["summary"]["quarantined_record_count"] == 127
+    assert prepared["summary"]["modeling_record_count"] == 4773
+    assert len(prepared["quarantined_group_ids"]) == 59
+    assert set(prepared["modeling"]["complexity"]) == set(COMPLEXITY_LABELS)
+    assert all(set(part["complexity"]) == set(COMPLEXITY_LABELS)
+               for part in prepared["splits"].values())
+    assert sum(prepared["summary"]["split_record_counts"].values()) == 4773
+
+    quarantined_sources = set(prepared["quarantined"]["src"])
+    quarantined_normalized = {
+        _normalized_source_hash(source, "python") for source in quarantined_sources
+    }
+    for split in prepared["splits"].values():
+        assert quarantined_sources.isdisjoint(split["src"])
+        assert quarantined_normalized.isdisjoint(
+            {_normalized_source_hash(source, "python") for source in split["src"]}
+        )
+    _, _, remaining_conflicts, _ = _complexity_conflict_partition(prepared["modeling"])
+    assert not remaining_conflicts
+    pd.testing.assert_frame_equal(frame, original)
+    restored = pd.concat([prepared["modeling"], prepared["quarantined"]]).sort_index()
+    pd.testing.assert_frame_equal(restored, original)
+
+
+def test_complexity_quarantine_membership_and_splits_are_deterministic():
+    frame = full_complexity_quarantine_records()
+
+    first = prepare_complexity_dataset(frame)
+    second = prepare_complexity_dataset(frame)
+
+    assert first["quarantined_group_ids"] == second["quarantined_group_ids"]
+    pd.testing.assert_frame_equal(first["quarantined"], second["quarantined"])
+    for name in ("train", "validation", "test"):
+        pd.testing.assert_frame_equal(first["splits"][name], second["splits"][name])
+
+
+def test_complexity_split_detects_normalized_conflicts_and_checks_final_overlap():
+    records = complexity_records()
+    records.extend(
+        [
+            {"src": "x = 1\n", "complexity": "constant", "problem": "normalized-shared"},
+            {"src": "x=1  # formatting-only variant\n", "complexity": "logn", "problem": "normalized-shared"},
+        ]
+    )
+    frame = pd.DataFrame(records)
+
+    mask, exact_conflicts, normalized_conflicts, normalized_record_count = \
+        _complexity_conflict_partition(frame)
+    splits = split_complexity_dataset(frame)
+
+    assert not exact_conflicts
+    assert len(normalized_conflicts) == 1
+    assert normalized_record_count == 2
+    assert mask.sum() == 2
+    assert set(splits) == {"train", "validation", "test"}
+    assert sum(len(part) for part in splits.values()) == 80
+    assert not any(
+        _normalized_source_hash(source, "python") == next(iter(normalized_conflicts))
+        for part in splits.values()
+        for source in part["src"]
+    )
+    for left, right in (("train", "validation"), ("train", "test"), ("validation", "test")):
+        left_hashes = {_normalized_source_hash(source, "python") for source in splits[left]["src"]}
+        right_hashes = {_normalized_source_hash(source, "python") for source in splits[right]["src"]}
+        assert left_hashes.isdisjoint(right_hashes)
 
 
 def test_devign_validation_accepts_official_boolean_labels():
