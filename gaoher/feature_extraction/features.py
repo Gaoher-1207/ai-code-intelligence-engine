@@ -191,8 +191,10 @@ def _hajera_schema_features() -> Any:
         from hajera.training import schema_features
     except ImportError as exc:
         raise ImportError(
-            "Hajera's schema feature module could not be imported; install the "
-            "project requirements and import from the repository root"
+            "Hajera's required module 'hajera.training.schema_features' is "
+            "unavailable. Include Hajera's training package in the project "
+            "checkout, make the repository root the import root, and install "
+            "its declared runtime dependencies."
         ) from exc
     return schema_features
 

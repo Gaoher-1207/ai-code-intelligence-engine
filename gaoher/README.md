@@ -1,29 +1,25 @@
 # Gaoher Analysis Modules
 
-Gaoher's modules provide static Python source analysis for the AI Code Intelligence Engine. They parse source with Python's `ast` module, expose structural features under the shared feature schema, and estimate symbolic time and auxiliary-space growth. These results are heuristics: they do not prove runtime behavior or exact complexity for arbitrary programs.
+Gaoher provides static Python source analysis using Python's `ast` module, shared-schema feature extraction, and symbolic time and auxiliary-space growth estimates. Complexity results are heuristics and cannot prove behavior for arbitrary programs.
 
 ## Modules
 
 - `code_analysis`: parser and per-function structural metrics.
-- `feature_extraction`: shared-schema complexity features and adapters to Hajera's existing vector, preprocessing, and defect extractors.
+- `feature_extraction`: shared-schema complexity features and compatibility adapters.
 - `complexity_analysis`: conservative AST-based time and auxiliary-space estimates.
-- `tests`: unit and pipeline tests for the modules above.
+- `ml_integration`: public bridge to Hajera's trained Python complexity and C defect predictors.
 
 See [Architecture](docs/ARCHITECTURE.md), [Parser](docs/PARSER.md), [Feature Extraction](docs/FEATURE_EXTRACTION.md), [Complexity Analysis](docs/COMPLEXITY_ANALYSIS.md), and [Testing](docs/TESTING.md).
 
-## Requirements and running tests
+## Run tests
 
-The parser and analyzer use Python's standard library. Feature extraction imports the repository's root `feature_schema.py`. The Hajera adapters also import `hajera.training.schema_features`, whose numerical preprocessing uses NumPy. No separate Gaoher dependency manifest is present.
-
-From the repository root, run the existing suite with:
+From the repository root with Python 3.11, dependencies installed, and model LFS files hydrated:
 
 ```powershell
-python -m unittest discover -s gaoher/tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s gaoher\tests -v
 ```
 
-This command runs the tests using the active Python interpreter; activate the project's supported environment first if it has been prepared. Tests that need NumPy are skipped when it is unavailable.
-
-## Usage
+## Example
 
 ```python
 from gaoher.code_analysis import analyze_source
@@ -40,15 +36,12 @@ def visit(n, m):
 parsed = analyze_source(source)
 features = extract_complexity_features(source)
 estimate = estimate_complexity(source)
-
-print(parsed.functions[0].loop_count)       # 2
-print(features["loop_count"])               # 2
-print(estimate.time_complexity)              # O(m*n) estimated
-print(estimate.space_complexity)              # O(1) estimated
 ```
 
-Invalid Python is returned as a diagnostic by `analyze_source`. The feature extractor and complexity estimator raise `ValueError` for invalid Python. See each module guide for return fields, assumptions, and limitations.
+Invalid Python is returned as a diagnostic by `analyze_source`; feature extraction and complexity estimation raise `ValueError` for invalid Python.
 
-## Integration status
+## ML integration
 
-The complexity extractor is tested against Hajera's real feature extractor and ordered 17-value vector. The defect adapter delegates to Hajera's real extractor. This does not establish trained-model compatibility: model loading and predictions are outside Gaoher's modules. In the recorded validation environment NumPy was unavailable, so the real numerical preprocessing test was skipped. See [Testing](docs/TESTING.md) for the exact distinction between real, mocked, and skipped checks.
+`gaoher.ml_integration.predict_python_complexity(source)` validates Gaoher's analysis and feature adapters, exposes Hajera's authoritative 17-value vector and NumPy preprocessing result, and delegates model inference to Hajera's public prediction API. `predict_c_defect(source)` uses Hajera's defect feature extraction and prediction APIs. Hajera retains ownership of its ML extraction, preprocessing, models, and predictions.
+
+The normal runtime uses `hajera.training` imports from the repository root. Install `hajera/requirements.txt`, hydrate `hajera/models/*.joblib` with Git LFS, and run from the project root. Integration and prediction verification details are in [ML integration report](ML_INTEGRATION_REPORT.md).

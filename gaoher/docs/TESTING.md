@@ -1,25 +1,24 @@
 # Testing and Validation
 
-The suite is `gaoher/tests/test_analysis.py` and uses Python's built-in `unittest`. From the repository root:
+Run the full Gaoher suite from the repository root with Python 3.11 and Hajera's dependencies installed:
 
 ```powershell
-python -m unittest discover -s gaoher/tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s gaoher\tests -v
+.\.venv\Scripts\python.exe -m unittest discover -s gaoher\tests -p test_ml_integration.py -v
+.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider hajera\training -q
 ```
 
-## Coverage
+The tests cover Gaoher's AST parser and complexity estimates, shared schema fields, the exact Hajera 17-value complexity vector, actual NumPy preprocessing, the defect feature adapter, public model predictions for Python and C, and Streamlit UI smoke tests.
 
-Tests exercise parser behavior, independent nested function and method metrics, async functions, nested loops, comprehensions, direct and conventional method recursion, invalid syntax, shared-schema feature validation, Hajera feature/vector/defect adapters, and time/space estimates. End-to-end tests call the parser, complexity feature extractor, and complexity analyzer on the same source examples.
+## Verified result
 
-The complexity cases include single and nested loops, sequential loops, distinct input dimensions, unknown iterables, while-loop heuristics, recognized recursion, collection growth and literals, comprehensions, built-in operations, and unsupported calls.
+Python 3.11.9 in `.venv`; tested dependency versions include NumPy 2.2.6, SciPy 1.17.1, joblib 1.6.0, and scikit-learn 1.7.2. Hajera's complete `requirements.txt` was installed in the project environment.
 
-## Recorded validation results
+- Gaoher: **62 tests passed, 0 failed, 0 skipped**.
+- Hajera: **64 tests passed**.
+- Actual Python complexity and C defect predictions ran through Hajera's public API and real hydrated model bundles.
+- Streamlit AppTest emits a bare-mode `ScriptRunContext` warning and a `use_container_width` deprecation warning; UI checks pass.
 
-In the validation environment used for Phase 4, the complete suite ran **53 tests: 52 passed, 0 failed, 1 skipped**. The skipped test is the comparison against Hajera's actual numerical `prep` result, because NumPy was not installed in that environment.
+Normal package imports must resolve from the repository root. Ensure Git LFS is installed and model files are hydrated (`git lfs pull --include="hajera/models/*.joblib"`). Training requires external CodeComplex data and the cached Devign dataset; neither was needed for inference validation.
 
-The complexity feature, 17-value vector, and defect extractor comparisons called Hajera's real source functions. Tests used an import-only NumPy shim to load Hajera's module when NumPy was absent; no extractor or vector result was mocked in those comparisons. A distinct mocked test checks that Gaoher delegates preprocessing correctly. These are different checks and should not be described as a real numerical preprocessing test.
-
-The actual preprocessing operation, trained model loading, and model predictions were not verified. Passing the feature/vector adapter tests does not establish trained-model compatibility.
-
-## Interpretation
-
-Test results apply to the source examples and Python environment in which the suite ran. They do not establish correctness for arbitrary Python programs or runtime complexity. Re-run the command in the intended project environment when dependencies are installed; do not treat the historical result above as a current environment check.
+See [`ML_INTEGRATION_REPORT.md`](../ML_INTEGRATION_REPORT.md) for observed output values, setup steps, model contracts, and bridge interface details.

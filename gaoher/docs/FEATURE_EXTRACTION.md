@@ -1,30 +1,16 @@
 # Feature Extraction and Hajera Compatibility
 
-`gaoher/feature_extraction/features.py` exposes the shared complexity feature contract and adapters for existing Hajera functionality. The shared schema is defined in repository-root `feature_schema.py`; Gaoher reads and validates it but does not modify it.
+`gaoher/feature_extraction/features.py` implements Gaoher's static complexity features and adapters. Shared field definitions live in the root `feature_schema.py`; Gaoher validates against that contract without modifying it.
 
-## Complexity feature mapping
+## Complexity fields
 
-Call:
+Call `extract_complexity_features(source, language="python")` for the validated mapping. The shared fields are `language`, `function_length`, `loop_count`, `max_loop_nesting`, `branch_count`, `recursion_count`, `function_call_count`, `ast_node_count`, `input_size_variable`, `loop_bound_type`, and `data_structure_types`.
 
-```python
-extract_complexity_features(source: str, language: str = "python") -> dict[str, Any]
-```
+Extraction semantics match Hajera's training feature function: `ast.For` and `ast.While` contribute loop counts (`AsyncFor` is excluded); branch counts include `If`, conditional expressions, and match cases; function calls and AST nodes are counted across the parsed source. Input-size, loop-bound, and data-structure classifications are AST heuristics. See the implementation and tests for their detailed recognition rules.
 
-The returned keys are `language`, `function_length`, `loop_count`, `max_loop_nesting`, `branch_count`, `recursion_count`, `function_call_count`, `ast_node_count`, `input_size_variable`, `loop_bound_type`, and `data_structure_types`. The validator runs before the mapping is returned. The count and classification semantics intentionally match Hajera's training-time extractor:
+## 17-value vector and preprocessing
 
-- `loop_count` counts `ast.For` and `ast.While`; `ast.AsyncFor` is excluded for parity.
-- `max_loop_nesting` uses nested `For` and `While` AST nodes.
-- `branch_count` counts `If`, conditional expressions, and `match` cases.
-- Comprehension generator/filters are not included in the loop or branch feature counts.
-- Function calls and AST nodes count across the entire parsed source unit.
-- Recursion counts direct calls and conventional `self`/`cls` self-method calls, not mutual or aliased recursion.
-- Input-size, loop-bound, and data-structure classifications are AST heuristics. Recognized structures include list, dict (including `defaultdict` and `Counter`), set, heap, and deque.
-
-The feature extractor accepts `language` as an argument and validates the returned mapping; it parses the supplied source as Python regardless of that label.
-
-## 17-value vector adapter
-
-`complexity_vector_feature_names()` returns Hajera's authoritative ordering. `complexity_vector(features)` validates the mapping and delegates numeric conversion to Hajera. The exact order is:
+`complexity_vector_feature_names()` delegates ordering to Hajera. Its exact numeric vector order is:
 
 1. `function_length`
 2. `loop_count`
@@ -34,24 +20,17 @@ The feature extractor accepts `language` as an argument and validates the return
 6. `function_call_count`
 7. `ast_node_count`
 8. `input_size_variable`
-9. `loop_bound_type=constant`
-10. `loop_bound_type=input_dependent`
-11. `loop_bound_type=logarithmic`
-12. `loop_bound_type=unknown`
-13. `data_structure_types=list`
-14. `data_structure_types=dict`
-15. `data_structure_types=set`
-16. `data_structure_types=heap`
-17. `data_structure_types=deque`
+9–12. `loop_bound_type`: constant, input_dependent, logarithmic, unknown
+13–17. `data_structure_types`: list, dict, set, heap, deque
 
-The final nine values are indicator values (0 or 1); the boolean input-size field becomes an integer. The Gaoher adapter delegates the ordering and vector conversion rather than maintaining a second implementation.
+Boolean values become integers and categorical fields become indicator values. Gaoher delegates vector conversion to Hajera; it does not keep a parallel implementation. `preprocess_complexity_features()` calls Hajera's `prep()` and returns a one-row NumPy matrix of shape `(1, 17)`. The integration test compared this adapter output against Hajera's actual `prep()` result.
 
-`preprocess_complexity_features(features)` calls Hajera's `complexity_vector` then `prep([vector])`. Hajera's `prep` applies NumPy `log1p` to a float array; the expected shape is `(1, 17)`. This is a delegated contract, not an independently reproduced transform.
+## Defect feature adapter
 
-## Defect adapter
+`extract_defect_features(source, language="c")` calls Hajera's C extractor and validates the returned mapping against the shared defect schema. The `predict_c_defect()` bridge delegates actual prediction to Hajera's public API and returns the features together with its prediction.
 
-`extract_defect_features(source: str, language: str = "c")` calls `hajera.training.schema_features.extract_defect_features` and validates the returned mapping with `validate_defect_features`. Gaoher does not duplicate the defect heuristics. This helper returns features only; it neither loads a defect model nor predicts a risk score.
+## Public prediction bridge
 
-## Dependencies and verification boundary
+`predict_python_complexity(source)` parses with Gaoher, validates and returns Gaoher's feature/vector/preprocessing artifacts, then delegates inference on the source to Hajera's public `predict_complexity()` function. Hajera remains authoritative for its inference-time feature extraction, preprocessing, model loading, and prediction. No estimator internals or prediction logic are duplicated.
 
-The shared schema must be importable from the repository root. Hajera adapter calls require `hajera.training.schema_features` to be importable. That module imports NumPy at import time. The previously recorded comparison tests invoked Hajera's real pure-Python extractors and vector functions with an import-only NumPy shim because NumPy was absent; those checks do not verify numerical preprocessing. A separate mock test checks preprocessing delegation only. No trained-model compatibility is claimed.
+Use standard imports from the repository root. Install dependencies from `hajera/requirements.txt` and hydrate model files with Git LFS. Verified Python complexity output for the tested sample: `O(log n)` / `logn`, confidence `0.257265`. Verified C defect output: risk probability `0.581239`, label `vulnerable`. Full details and commands are in [`ML_INTEGRATION_REPORT.md`](../ML_INTEGRATION_REPORT.md).

@@ -22,15 +22,22 @@ from feature_schema import validate_complexity_features
 
 
 def _real_hajera_schema_features():
-    """Import Hajera's real pure-Python extractors, shimming only absent NumPy."""
+    """Import Hajera's actual feature module from the normal project package."""
     try:
         return importlib.import_module("hajera.training.schema_features")
     except ModuleNotFoundError as exc:
-        if exc.name != "numpy":
-            raise
-        numpy_stub = types.ModuleType("numpy")
-        with patch.dict(sys.modules, {"numpy": numpy_stub}):
-            return importlib.import_module("hajera.training.schema_features")
+        if exc.name == "numpy" or exc.name == "hajera" or (
+            exc.name and exc.name.startswith("hajera.")
+        ):
+            reason = (
+                "NumPy is missing from the active environment"
+                if exc.name == "numpy"
+                else "Hajera's feature module is absent from the normal project checkout"
+            )
+            raise unittest.SkipTest(
+                reason
+            ) from exc
+        raise
 
 
 class ParserTests(unittest.TestCase):
