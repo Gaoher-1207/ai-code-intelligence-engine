@@ -77,7 +77,8 @@ git lfs fsck --objects
 - Branch: `integration/ai-code-intelligence`.
 - Integration commit: `a40a653c7b88c64c3abdaa11c94f3694662f0094`, message `feat: integrate code intelligence and ML prediction pipeline`.
 - This report is committed separately after the integration commit so it can record that commit hash.
-- Push target: `origin/integration/ai-code-intelligence`; remote ref will be checked against the local branch tip after pushing. No force push is used.
+- Push target: `origin/integration/ai-code-intelligence`.
+- GitHub push succeeded; all six LFS objects (307 MB total) uploaded. `git ls-remote --heads origin integration/ai-code-intelligence` matched local tip `bd0da292d811bf42e217af96813371601e772fb5` at verification time. The branch tracks `origin/integration/ai-code-intelligence`; no force push was used.
 
 ## Remaining limitations
 
