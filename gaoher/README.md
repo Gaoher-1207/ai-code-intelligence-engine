@@ -16,7 +16,7 @@ See [Architecture](docs/ARCHITECTURE.md), [Parser](docs/PARSER.md), [Feature Ext
 From the repository root with Python 3.11, dependencies installed, and model LFS files hydrated:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s gaoher\tests -v
+.\.venv311\Scripts\python.exe -m unittest discover -s gaoher\tests -v
 ```
 
 ## Example

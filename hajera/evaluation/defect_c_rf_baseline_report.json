@@ -1,0 +1,317 @@
+{
+  "class_distributions": {
+    "test": {
+      "False": 2216,
+      "True": 1856
+    },
+    "train": {
+      "False": 10341,
+      "True": 8663
+    },
+    "validation": {
+      "False": 2216,
+      "True": 1856
+    }
+  },
+  "dataset": {
+    "evaluation_scope": "unseen commits within FFmpeg and qemu; not unseen projects",
+    "leakage_verification": {
+      "both_labels_in_every_split": true,
+      "both_projects_in_every_split": true,
+      "connected_component_crossings": 0,
+      "no_connected_component_is_divided": true,
+      "no_normalized_source_group_crosses_controlled_splits": true,
+      "no_project_commit_pair_crosses_controlled_splits": true,
+      "no_quarantined_record_in_controlled_splits": true,
+      "normalized_source_overlap_groups": {
+        "train/test": 0,
+        "train/validation": 0,
+        "validation/test": 0
+      },
+      "project_commit_pair_overlap_groups": {
+        "train/test": 0,
+        "train/validation": 0,
+        "validation/test": 0
+      },
+      "quarantined_record_split_overlap_count": 0
+    },
+    "quarantined_groups": 85,
+    "quarantined_records": 170,
+    "source": "hajera/data/devign_prepared"
+  },
+  "method": {
+    "candidate_tree_counts": [
+      200,
+      400
+    ],
+    "feature_dimensions": 13,
+    "features": [
+      "language",
+      "source_code",
+      "function_length",
+      "branch_count",
+      "loop_count",
+      "pointer_usage",
+      "memory_operation_count",
+      "dangerous_api_count",
+      "exception_handling_count",
+      "null_check_count",
+      "cyclomatic_complexity",
+      "duplicate_code_ratio",
+      "uninitialized_variable_count",
+      "resource_cleanup_count",
+      "ast_node_count"
+    ],
+    "fit_policy": "training split only; validation used for selection; test evaluated after selection",
+    "random_state": 42,
+    "selected_parameters": {
+      "class_weight": "balanced",
+      "max_features": "sqrt",
+      "min_samples_leaf": 1,
+      "n_estimators": 200
+    },
+    "selection_metric": "validation macro-F1 (ties: accuracy, then fewer trees)"
+  },
+  "project_distributions": {
+    "test": {
+      "FFmpeg": 1447,
+      "qemu": 2625
+    },
+    "train": {
+      "FFmpeg": 6756,
+      "qemu": 12248
+    },
+    "validation": {
+      "FFmpeg": 1448,
+      "qemu": 2624
+    }
+  },
+  "split_sizes": {
+    "test": 4072,
+    "train": 19004,
+    "validation": 4072
+  },
+  "task": "Devign binary defect prediction",
+  "test": {
+    "majority_baseline": {
+      "accuracy": 0.5442043222003929,
+      "confusion_matrix": [
+        [
+          2216,
+          0
+        ],
+        [
+          1856,
+          0
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "False",
+        "True"
+      ],
+      "macro_f1": 0.3524173027989822,
+      "per_class": {
+        "False": {
+          "f1-score": 0.7048346055979644,
+          "precision": 0.5442043222003929,
+          "recall": 1.0,
+          "support": 2216.0
+        },
+        "True": {
+          "f1-score": 0.0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "support": 1856.0
+        }
+      },
+      "pr_auc": 0.45579567779960706,
+      "precision_macro": 0.27210216110019647,
+      "recall_macro": 0.5,
+      "roc_auc": 0.5
+    },
+    "random_forest": {
+      "accuracy": 0.5071218074656189,
+      "confusion_matrix": [
+        [
+          1447,
+          769
+        ],
+        [
+          1238,
+          618
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "False",
+        "True"
+      ],
+      "macro_f1": 0.4858101605120895,
+      "per_class": {
+        "False": {
+          "f1-score": 0.5904917363803306,
+          "precision": 0.5389199255121043,
+          "recall": 0.6529783393501805,
+          "support": 2216.0
+        },
+        "True": {
+          "f1-score": 0.3811285846438483,
+          "precision": 0.44556596971881757,
+          "recall": 0.3329741379310345,
+          "support": 1856.0
+        }
+      },
+      "pr_auc": 0.46388740024387215,
+      "precision_macro": 0.49224294761546095,
+      "recall_macro": 0.49297623864060747,
+      "roc_auc": 0.49405273072793476
+    }
+  },
+  "training_in_sample": {
+    "majority_baseline": {
+      "accuracy": 0.5441486002946748,
+      "confusion_matrix": [
+        [
+          10341,
+          0
+        ],
+        [
+          8663,
+          0
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "False",
+        "True"
+      ],
+      "macro_f1": 0.3523939342307037,
+      "per_class": {
+        "False": {
+          "f1-score": 0.7047878684614074,
+          "precision": 0.5441486002946748,
+          "recall": 1.0,
+          "support": 10341.0
+        },
+        "True": {
+          "f1-score": 0.0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "support": 8663.0
+        }
+      },
+      "pr_auc": 0.4558513997053252,
+      "precision_macro": 0.2720743001473374,
+      "recall_macro": 0.5,
+      "roc_auc": 0.5
+    },
+    "random_forest": {
+      "accuracy": 0.9832140601978531,
+      "confusion_matrix": [
+        [
+          10194,
+          147
+        ],
+        [
+          172,
+          8491
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "False",
+        "True"
+      ],
+      "macro_f1": 0.9830781704891722,
+      "per_class": {
+        "False": {
+          "f1-score": 0.9845945815424736,
+          "precision": 0.9834072930735096,
+          "recall": 0.9857847403539309,
+          "support": 10341.0
+        },
+        "True": {
+          "f1-score": 0.9815617594358708,
+          "precision": 0.9829821717990276,
+          "recall": 0.9801454461502943,
+          "support": 8663.0
+        }
+      },
+      "pr_auc": 0.9978019698994908,
+      "precision_macro": 0.9831947324362686,
+      "recall_macro": 0.9829650932521126,
+      "roc_auc": 0.9980708012605319
+    }
+  },
+  "validation": {
+    "majority_baseline": {
+      "accuracy": 0.5442043222003929,
+      "confusion_matrix": [
+        [
+          2216,
+          0
+        ],
+        [
+          1856,
+          0
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "False",
+        "True"
+      ],
+      "macro_f1": 0.3524173027989822,
+      "per_class": {
+        "False": {
+          "f1-score": 0.7048346055979644,
+          "precision": 0.5442043222003929,
+          "recall": 1.0,
+          "support": 2216.0
+        },
+        "True": {
+          "f1-score": 0.0,
+          "precision": 0.0,
+          "recall": 0.0,
+          "support": 1856.0
+        }
+      },
+      "pr_auc": 0.45579567779960706,
+      "precision_macro": 0.27210216110019647,
+      "recall_macro": 0.5,
+      "roc_auc": 0.5
+    },
+    "random_forest": {
+      "accuracy": 0.48452848722986247,
+      "confusion_matrix": [
+        [
+          1365,
+          851
+        ],
+        [
+          1248,
+          608
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "False",
+        "True"
+      ],
+      "macro_f1": 0.4660759670005281,
+      "per_class": {
+        "False": {
+          "f1-score": 0.5653344377717954,
+          "precision": 0.5223880597014925,
+          "recall": 0.6159747292418772,
+          "support": 2216.0
+        },
+        "True": {
+          "f1-score": 0.3668174962292609,
+          "precision": 0.4167237834132968,
+          "recall": 0.3275862068965517,
+          "support": 1856.0
+        }
+      },
+      "pr_auc": 0.4266860347674035,
+      "precision_macro": 0.4695559215573947,
+      "recall_macro": 0.4717804680692145,
+      "roc_auc": 0.47448573948867173
+    }
+  }
+}

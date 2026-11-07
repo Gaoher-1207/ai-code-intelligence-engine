@@ -13,5 +13,5 @@ pyarrow>=14,<25
 
 # Evaluation plots, optional frontend, and tests.
 matplotlib>=3.8,<4.0
-streamlit>=1.32,<2.0
+streamlit>=1.49,<2.0
 pytest>=8,<10

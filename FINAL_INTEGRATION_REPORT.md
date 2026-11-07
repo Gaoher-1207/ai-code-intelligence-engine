@@ -83,3 +83,40 @@ git lfs fsck --objects
 ## Remaining limitations
 
 The app and inference path work from a checkout when Python dependencies are installed and Git LFS models are hydrated. Model training was not rerun because required datasets are external and the trained models are already available. Streamlit emitted the warnings listed above. No other known runtime blocker remains.
+
+## Interim sandbox audit (2026-11-08, superseded by latest verification below)
+
+The verification above is historical evidence from the earlier Python 3.11.9 environment. The current checkout's `.venv311` is not executable: its base interpreter path (`C:\Users\mdgao\AppData\Local\Programs\Python\Python311\python.exe`) is absent, and `py -0p` currently lists Python 3.13.1 only. In Python 3.13, the Gaoher core suite ran 53 tests (49 passed, 4 skipped); full discovery had 2 dependency import errors (missing NumPy and Streamlit). The Hajera pytest suite, real predictions, and frontend AppTests could not be rerun. Installed package metadata in `.venv311` reports NumPy 2.2.6, SciPy 1.17.1, pandas 2.3.3, scikit-learn 1.7.2, joblib 1.6.0, pytest 9.2.0, and Streamlit 1.67.0, but imports are unverified. See `FINAL_PROJECT_AUDIT.md` for the complete audit.
+
+The audit changed the frontend dataframe calls to `width="stretch"` and raised the Streamlit requirement minimum to 1.49. Those final changes still need frontend tests in a working environment. This report's historical statement that no runtime blocker remains is superseded by this addendum.
+
+### Initial restricted-shell rerun
+
+The current command environment still does not match the reported recreated venv: `py -0p` lists only Python 3.13.1, and both `.venv311` and the preserved `.venv311_old` fail at startup with `No Python at ...Python311\python.exe`. Their package metadata lists NumPy 2.2.6, SciPy 1.17.1, pandas 2.3.3, scikit-learn 1.7.2, joblib 1.6.0, pytest 9.2.0, and Streamlit 1.67.0; metadata is not an import check.
+
+- `python -m unittest discover -s gaoher\tests -v`: 55 discovered; 49 passed, 4 skipped, 2 import errors; exit 1. Imports failed because system Python lacks NumPy and Streamlit.
+- `python -m pytest hajera\training -v`: exit 1 before collection (`No module named pytest`).
+- `python -m unittest gaoher.tests.test_ml_integration -v`: exit 1 before tests (`No module named numpy`).
+- `python -m unittest gaoher.tests.test_frontend_integration -v`: exit 1 before tests (`No module named streamlit`).
+- Real Hajera model/interface predictions: not run because dependencies cannot be imported in the available runtime.
+- `git lfs fsck --objects`: passed; all six production model objects are listed by `git lfs ls-files`.
+- `git diff --check`: passed with Git's LF-to-CRLF normalization notices. Frontend and bridge Python syntax compilation passed under Python 3.13.1.
+
+The branch remains `integration/ai-code-intelligence`. `.venv311_old` has been preserved and added to `.gitignore` so the environment backup is not included accidentally. No commit or push was made. The latest audit is `FINAL_PROJECT_AUDIT.md`.
+
+## Latest verified rerun under `.venv311` (2026-11-08)
+
+After verifying access to the user's Python installation, `.venv311` was activated and reported Python 3.11.9 at `C:\Projects\ai_code_intelligence\ai-code-intelligence-engine\.venv311\Scripts\python.exe`. NumPy, SciPy, pandas, scikit-learn, joblib, pytest, and Streamlit all imported successfully. Versions: NumPy 2.2.6, SciPy 1.17.1, pandas 2.3.3, scikit-learn 1.7.2, joblib 1.6.0, pytest 9.2.0, Streamlit 1.67.0.
+
+- Gaoher full suite (`python -m unittest discover -s gaoher\tests -v`): **62 passed, 0 failed, 0 skipped**.
+- Hajera full suite (`python -m pytest hajera\training -v`): **64 passed, 0 failed, 0 skipped**.
+- ML bridge suite (`python -m unittest gaoher.tests.test_ml_integration -v`): **7 passed, 0 failed**.
+- Prediction interface (`python -m pytest hajera\training\test_prediction_interface.py -v`): **11 passed, 0 failed**.
+- Frontend AppTests (`python -m unittest gaoher.tests.test_frontend_integration -v`): **2 passed, 0 failed**. Streamlit emitted two bare-mode `ScriptRunContext` warnings; the deprecated `use_container_width` warning did not appear.
+- Production model metadata: complexity bundle `complexity_python_rf_improved.joblib`, ExtraTrees, 17 features/seven classes; defect bundle `defect_c_rf_improved.joblib`, Random Forest, 13 features/binary classes.
+- Real Python `total(xs)` prediction, matching through Hajera and Gaoher bridge: `O(log n)`, `logn`, confidence `0.257265`.
+- Real C `strcpy` sample (`void copy(char *s) { char buf[8]; strcpy(buf, s); }`), matching through Hajera and Gaoher bridge: risk `0.574168`, label `vulnerable`.
+- `git lfs fsck --objects`: passed; all six production bundles are listed by LFS.
+- `git diff --check`: passed with Git's LF-to-CRLF normalization notices.
+
+No model file was modified or retrained. `.venv311_old` remains preserved and both virtual environment directories are ignored by Git. The branch remains `integration/ai-code-intelligence`; there was no commit or push. Remaining limitations are external dataset/training reproducibility and dataset terms review. `FINAL_PROJECT_AUDIT.md` has the detailed current assessment.

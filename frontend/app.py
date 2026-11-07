@@ -81,7 +81,7 @@ with right:
                      "value": [str(value) for value in result["features"].values()]}
                 ),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
     else:
         try:
@@ -104,7 +104,7 @@ with right:
                      "value": [str(value) for value in features.values()]}
                 ),
                 hide_index=True,
-                use_container_width=True,
+                width="stretch",
             )
 
 st.divider()

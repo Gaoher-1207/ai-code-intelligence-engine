@@ -1,6 +1,6 @@
 # Phase 6: Gaoher–Hajera Runtime Handover
 
-**Status: integrated and verified in the current worktree.** The bridge uses normal `hajera.training` imports and delegates prediction to Hajera's public APIs. The two branches have unrelated histories; integration is selective and does not merge histories.
+**Latest status (2026-11-08):** `.venv311` Python 3.11.9 verification passed: Gaoher 62/62, Hajera 64/64, real bridge predictions, model loading, and frontend AppTests all passed. The bridge uses normal `hajera.training` imports and delegates prediction to Hajera's public APIs. The two branches have unrelated histories; integration was selective and did not merge histories. See [`FINAL_PROJECT_AUDIT.md`](../FINAL_PROJECT_AUDIT.md) for exact outputs and remaining dataset limitations.
 
 ## Verified environment and tests
 
@@ -21,8 +21,8 @@
 ## Reproduce
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s gaoher\tests -v
-.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider hajera\training -q
+.\.venv311\Scripts\python.exe -m unittest discover -s gaoher\tests -v
+.\.venv311\Scripts\python.exe -m pytest -p no:cacheprovider hajera\training -v
 git lfs fsck --objects
 ```
 

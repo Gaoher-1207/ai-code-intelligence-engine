@@ -56,3 +56,17 @@ The project must be run from its repository root so Python resolves the `gaoher`
 - `gaoher.ml_integration.predict_c_defect(source)` returns Hajera's defect feature mapping and prediction mapping.
 
 Hajera owns authoritative ML extraction, preprocessing, model loading, and prediction. Gaoher performs compatibility validation and delegates; it does not bypass Hajera's public prediction functions.
+
+## Current audit status (2026-11-08)
+
+The final verification was run after activating `.venv311`, which reported Python 3.11.9. Dependency imports passed (NumPy 2.2.6, SciPy 1.17.1, pandas 2.3.3, scikit-learn 1.7.2, joblib 1.6.0, pytest 9.2.0, Streamlit 1.67.0).
+
+- Gaoher complete suite: **62 passed, 0 failed, 0 skipped**.
+- Hajera complete suite: **64 passed, 0 failed, 0 skipped**.
+- Explicit Gaoher ML bridge: **7 passed, 0 failed**.
+- Hajera model prediction interface: **11 passed, 0 failed**.
+- Frontend AppTests: **2 passed, 0 failed** with two expected bare-mode `ScriptRunContext` warnings and no container-width deprecation warning.
+- Real predictions through Hajera and the Gaoher bridge agreed: Python `total(xs)` → `O(log n)`, `logn`, confidence `0.257265`; C `strcpy` sample → risk `0.574168`, `vulnerable`.
+- LFS fsck and `git diff --check` passed.
+
+The earlier restricted-shell attempt could not access the configured Python install; that result is superseded by this verified venv run. `.venv311_old` remains preserved. Training reproduction still depends on external datasets, and licensing terms require review. See [`FINAL_PROJECT_AUDIT.md`](../FINAL_PROJECT_AUDIT.md) and [`FINAL_INTEGRATION_REPORT.md`](../FINAL_INTEGRATION_REPORT.md) for detailed results.

@@ -3,10 +3,11 @@
 Run the full Gaoher suite from the repository root with Python 3.11 and Hajera's dependencies installed:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s gaoher\tests -v
-.\.venv\Scripts\python.exe -m unittest discover -s gaoher\tests -p test_ml_integration.py -v
-.\.venv\Scripts\python.exe -m pytest -p no:cacheprovider hajera\training -q
+.\.venv311\Scripts\python.exe -m unittest discover -s gaoher\tests -v
+.\.venv311\Scripts\python.exe -m pytest -p no:cacheprovider hajera\training -v
 ```
+
+The counts below are the latest run under `.venv311` Python 3.11.9: Gaoher **62 passed**, Hajera **64 passed**, ML bridge **7 passed**, prediction interface **11 passed**, and frontend AppTests **2 passed**. The frontend emitted two bare-mode `ScriptRunContext` warnings; see [`FINAL_PROJECT_AUDIT.md`](../../FINAL_PROJECT_AUDIT.md) for the exact commands, outputs, and release status.
 
 The tests cover Gaoher's AST parser and complexity estimates, shared schema fields, the exact Hajera 17-value complexity vector, actual NumPy preprocessing, the defect feature adapter, public model predictions for Python and C, and Streamlit UI smoke tests.
 
